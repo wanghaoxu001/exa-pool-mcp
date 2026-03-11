@@ -23,8 +23,8 @@ from typing import Optional, List
 # Configure logging (critical for stdio transport - never use print!)
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,7 @@ TIMEOUT = httpx.Timeout(30.0, connect=5.0)
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def format_error(status_code: int, message: str) -> str:
     """Format error messages consistently."""
@@ -61,7 +62,7 @@ async def make_exa_request(
     endpoint: str,
     method: str = "POST",
     data: Optional[dict] = None,
-    params: Optional[dict] = None
+    params: Optional[dict] = None,
 ) -> str:
     """
     Make a request to the Exa Pool API with proper error handling.
@@ -77,9 +78,9 @@ async def make_exa_request(
     """
     url = f"{EXA_POOL_BASE_URL.rstrip('/')}{endpoint}"
     headers = {
-        "x-api-key": EXA_POOL_API_KEY,
+        "Authorization": f"Bearer {EXA_POOL_API_KEY}",
         "Content-Type": "application/json",
-        "User-Agent": "exa-pool-mcp-server/1.0"
+        "User-Agent": "exa-pool-mcp-server/1.0",
     }
 
     try:
@@ -94,7 +95,9 @@ async def make_exa_request(
             # Handle specific HTTP status codes
             if response.status_code == 401:
                 logger.error("Authentication failed - API key may be invalid")
-                return format_error(401, "Authentication failed. API key may be invalid.")
+                return format_error(
+                    401, "Authentication failed. API key may be invalid."
+                )
 
             if response.status_code == 403:
                 logger.error("Access forbidden")
@@ -112,7 +115,7 @@ async def make_exa_request(
                 logger.error(f"Server error: {response.status_code}")
                 return format_error(
                     response.status_code,
-                    "Exa Pool server error. The service may be temporarily unavailable."
+                    "Exa Pool server error. The service may be temporarily unavailable.",
                 )
 
             # Raise for other 4xx/5xx errors
@@ -133,8 +136,7 @@ async def make_exa_request(
     except httpx.HTTPStatusError as e:
         logger.error(f"HTTP error {e.response.status_code}: {e}")
         return format_error(
-            e.response.status_code,
-            f"HTTP request failed: {e.response.reason_phrase}"
+            e.response.status_code, f"HTTP request failed: {e.response.reason_phrase}"
         )
 
     except ValueError as e:
@@ -150,12 +152,13 @@ async def make_exa_request(
 # MCP Tools
 # ============================================================================
 
+
 @mcp.tool()
 async def exa_search(
     query: str,
     num_results: int = 10,
     search_type: str = "auto",
-    include_text: bool = False
+    include_text: bool = False,
 ) -> str:
     """
     Search the web using Exa's AI-powered search engine.
@@ -186,26 +189,22 @@ async def exa_search(
         return "Error: search_type must be one of: auto, neural, fast, deep"
 
     # Build request payload
-    payload = {
-        "query": query.strip(),
-        "numResults": num_results,
-        "type": search_type
-    }
+    payload = {"query": query.strip(), "numResults": num_results, "type": search_type}
 
     # Add text content if requested
     if include_text:
         payload["contents"] = {"text": True}
 
-    logger.info(f"Searching Exa: query='{query}', num_results={num_results}, type={search_type}")
+    logger.info(
+        f"Searching Exa: query='{query}', num_results={num_results}, type={search_type}"
+    )
 
     return await make_exa_request("/search", data=payload)
 
 
 @mcp.tool()
 async def exa_get_contents(
-    urls: List[str],
-    include_text: bool = True,
-    include_html: bool = False
+    urls: List[str], include_text: bool = True, include_html: bool = False
 ) -> str:
     """
     Get clean, parsed content from one or more web pages.
@@ -236,10 +235,7 @@ async def exa_get_contents(
             return f"Error: Invalid URL format: {url}. URLs must start with http:// or https://"
 
     # Build request payload
-    payload = {
-        "urls": urls,
-        "text": include_text
-    }
+    payload = {"urls": urls, "text": include_text}
 
     if include_html:
         payload["htmlContent"] = True
@@ -251,9 +247,7 @@ async def exa_get_contents(
 
 @mcp.tool()
 async def exa_find_similar(
-    url: str,
-    num_results: int = 10,
-    include_text: bool = False
+    url: str, num_results: int = 10, include_text: bool = False
 ) -> str:
     """
     Find web pages similar to a given URL using semantic similarity.
@@ -276,16 +270,13 @@ async def exa_find_similar(
         return "Error: url parameter is required and cannot be empty"
 
     if not url.startswith(("http://", "https://")):
-        return f"Error: Invalid URL format. URLs must start with http:// or https://"
+        return "Error: Invalid URL format. URLs must start with http:// or https://"
 
     if not 1 <= num_results <= 100:
         return "Error: num_results must be between 1 and 100"
 
     # Build request payload
-    payload = {
-        "url": url.strip(),
-        "numResults": num_results
-    }
+    payload = {"url": url.strip(), "numResults": num_results}
 
     if include_text:
         payload["contents"] = {"text": True}
@@ -296,10 +287,7 @@ async def exa_find_similar(
 
 
 @mcp.tool()
-async def exa_answer(
-    query: str,
-    include_text: bool = False
-) -> str:
+async def exa_answer(query: str, include_text: bool = False) -> str:
     """
     Get an AI-generated answer to a question using Exa's Answer API.
 
@@ -320,10 +308,7 @@ async def exa_answer(
         return "Error: query parameter is required and cannot be empty"
 
     # Build request payload
-    payload = {
-        "query": query.strip(),
-        "text": include_text
-    }
+    payload = {"query": query.strip(), "text": include_text}
 
     logger.info(f"Getting answer for: {query}")
 
@@ -331,10 +316,7 @@ async def exa_answer(
 
 
 @mcp.tool()
-async def exa_create_research(
-    instructions: str,
-    model: str = "exa-research"
-) -> str:
+async def exa_create_research(instructions: str, model: str = "exa-research") -> str:
     """
     Create an asynchronous deep research task.
 
@@ -362,10 +344,7 @@ async def exa_create_research(
         return "Error: model must be one of: exa-research-fast, exa-research, exa-research-pro"
 
     # Build request payload
-    payload = {
-        "instructions": instructions.strip(),
-        "model": model
-    }
+    payload = {"instructions": instructions.strip(), "model": model}
 
     logger.info(f"Creating research task with model: {model}")
 
@@ -395,15 +374,13 @@ async def exa_get_research(research_id: str) -> str:
 
     logger.info(f"Getting research task: {research_id}")
 
-    return await make_exa_request(
-        f"/research/v1/{research_id.strip()}",
-        method="GET"
-    )
+    return await make_exa_request(f"/research/v1/{research_id.strip()}", method="GET")
 
 
 # ============================================================================
 # Main Entry Point
 # ============================================================================
+
 
 def main():
     """Run the MCP server using stdio transport."""
